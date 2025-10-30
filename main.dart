@@ -2,11 +2,14 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
+/// Entry point of the Connect Four application.
 void main() async {
   Controller().start();
 }
 
+/// Controller class for managing game flow.
 class Controller {
+  /// Starts the Connect Four game.
   void start() async {
     var ui = ConsoleUI();
     ui.showMessage('Welcome to Connect Four!');
@@ -54,8 +57,8 @@ class Controller {
         board.dropToken(playerMove, 'P');
 
         // Check player win/draw
-        if (moveResult['ack_move']['isWin'] == true) {
-          ui.showBoard();
+        if (board.checkWin('P')) {
+          ui.showBoard(highlight: board.winningSequence);
           ui.showMessage('You win!');
           gameOver = true;
           break;
@@ -71,8 +74,8 @@ class Controller {
         if (compMove != null && compMove['slot'] != null) {
           board.dropToken(compMove['slot'], 'C');
 
-          if (compMove['isWin'] == true) {
-            ui.showBoard();
+          if (board.checkWin('C')) {
+            ui.showBoard(highlight: board.winningSequence);
             ui.showMessage('Computer wins!');
             gameOver = true;
             break;
@@ -91,6 +94,7 @@ class Controller {
   }
 }
 
+/// Handles HTTP communication with the Connect Four server.
 class WebClient {
   static const defaultUrl =
       'https://cssrvlab01.utep.edu/Classes/cs3360Cheon/dacardenas5/c4Service/src';
@@ -100,6 +104,7 @@ class WebClient {
 
   WebClient([this.url = defaultUrl]);
 
+  /// Retrieves board size and available strategies from the server.
   Future<List<String>> getInfo() async {
     var response = await http.get(Uri.parse('$url/info/'));
     if (response.statusCode != 200) {
@@ -111,6 +116,7 @@ class WebClient {
     return List<String>.from(info['strategies']);
   }
 
+  /// Starts a new game with the selected strategy.
   Future<String> startGame(String strategy) async {
     var response = await http.get(Uri.parse('$url/new/?strategy=$strategy'));
     if (response.statusCode != 200) {
@@ -123,6 +129,7 @@ class WebClient {
     return data['pid'];
   }
 
+  /// Sends a move to the server and returns the result.
   Future<Map<String, dynamic>> makeMove(String pid, int slot) async {
     var response = await http.get(Uri.parse('$url/play/?pid=$pid&move=$slot'));
     if (response.statusCode != 200) {
@@ -136,17 +143,21 @@ class WebClient {
   }
 }
 
+/// Handles input/output and displays the board.
 class ConsoleUI {
   late Board _board;
 
+  /// Sets the board model to be used for display.
   void setBoard(Board board) {
     _board = board;
   }
 
+  /// Displays a message to the user.
   void showMessage(String msg) {
     print(msg);
   }
 
+  /// Prompts the user for the Connect Four server URL.
   String promptServerUrl(String defaultUrl) {
     stdout.write('Enter the C4 server URL [default=$defaultUrl]: ');
     var url = stdin.readLineSync();
@@ -156,6 +167,7 @@ class ConsoleUI {
     return url;
   }
 
+  /// Prompts the user to select a strategy from the available options.
   String promptStrategy(List<String> strategies) {
     for (var i = 0; i < strategies.length; i++) {
       print('${i + 1}. ${strategies[i]}');
@@ -170,6 +182,7 @@ class ConsoleUI {
     return strategies[choice - 1];
   }
 
+  /// Prompts the player to select a valid slot.
   int promptMove() {
     while (true) {
       stdout.write('Select a slot [1-${_board.width}]: ');
@@ -186,11 +199,16 @@ class ConsoleUI {
     }
   }
 
-  void showBoard() {
+  /// Displays the current board, optionally highlighting a winning sequence.
+  void showBoard({List<Point>? highlight}) {
     for (int r = 0; r < _board.height; r++) {
       var line = '';
       for (int c = 0; c < _board.width; c++) {
-        line += tokenSymbol(_board.rows[c][r]) + ' ';
+        bool isHighlight =
+            highlight != null && highlight.any((p) => p.x == c && p.y == r);
+        line += isHighlight
+            ? '*${tokenSymbol(_board.rows[c][r])}* '
+            : '${tokenSymbol(_board.rows[c][r])} ';
       }
       print(line.trim());
     }
@@ -198,6 +216,7 @@ class ConsoleUI {
     print('');
   }
 
+  /// Returns the display symbol for a token.
   String tokenSymbol(String t) {
     switch (t) {
       case 'P':
@@ -210,21 +229,28 @@ class ConsoleUI {
   }
 }
 
+/// Represents a Connect Four board.
 class Board {
   final int width;
   final int height;
   late List<List<String>> _rows;
 
+  /// Stores the last detected winning sequence (used for highlighting).
+  List<Point> winningSequence = [];
+
   Board({this.width = 7, this.height = 6}) {
     _rows = List.generate(width, (_) => List.filled(height, ' '));
   }
 
+  /// Returns the board rows.
   List<List<String>> get rows => _rows;
 
+  /// Checks if a column is full.
   bool isSlotFull(int col) {
     return _rows[col][0] != ' ';
   }
 
+  /// Drops a token into a column.
   void dropToken(int col, String token) {
     for (int r = height - 1; r >= 0; r--) {
       if (_rows[col][r] == ' ') {
@@ -234,4 +260,61 @@ class Board {
     }
     throw Exception('Invalid slot, $col');
   }
+
+  /// Checks if a given token has a winning sequence on the board.
+  bool checkWin(String token) {
+    winningSequence.clear();
+
+    // Horizontal
+    for (int r = 0; r < height; r++) {
+      for (int c = 0; c <= width - 4; c++) {
+        if (List.generate(4, (i) => _rows[c + i][r]).every((t) => t == token)) {
+          winningSequence = List.generate(4, (i) => Point(c + i, r));
+          return true;
+        }
+      }
+    }
+
+    // Vertical
+    for (int c = 0; c < width; c++) {
+      for (int r = 0; r <= height - 4; r++) {
+        if (List.generate(4, (i) => _rows[c][r + i]).every((t) => t == token)) {
+          winningSequence = List.generate(4, (i) => Point(c, r + i));
+          return true;
+        }
+      }
+    }
+
+    // Diagonal down-right
+    for (int c = 0; c <= width - 4; c++) {
+      for (int r = 0; r <= height - 4; r++) {
+        if (List.generate(4, (i) => _rows[c + i][r + i])
+            .every((t) => t == token)) {
+          winningSequence = List.generate(4, (i) => Point(c + i, r + i));
+          return true;
+        }
+      }
+    }
+
+    // Diagonal up-right
+    for (int c = 0; c <= width - 4; c++) {
+      for (int r = 3; r < height; r++) {
+        if (List.generate(4, (i) => _rows[c + i][r - i])
+            .every((t) => t == token)) {
+          winningSequence = List.generate(4, (i) => Point(c + i, r - i));
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+}
+
+/// Simple 2D point for board coordinates.
+class Point {
+  final int x;
+  final int y;
+
+  Point(this.x, this.y);
 }

@@ -1,0 +1,122 @@
+	       CS 3360 - Programming Language Concepts
+
+	   PROJECT 2: OBJECT-ORIENTED PROGRAMMING WITH DART
+                 (File $Date: 2025/10/19 06:19:37 $)
+
+Due: November 6
+
+This assignment can be completed either individually or in pairs. If
+working in pairs, both partners should complete and submit the
+contribution form.
+
+The objective of this assignment is to gain hands-on experience in
+creating console-based applications in Dart [1], leveraging Dart APIs
+for collections, I/O, and networking.
+
+Write a Dart console application [3] for playing Connect Four (C4),
+using a Connect Four Web service implemented in PHP. Your application
+should provide a user-friendly command-line interface for the Web
+service and must not replicate any game logic already implemented on
+the server. You may use the reference implementation available from:
+https://www.cs.utep.edu/cheon/cs3360/project/c4/.
+
+Your application should satisfy the following functional and
+non-functional requirements.
+
+REQUIREMENTS
+
+  R1. Your app must allow the user to specify a Connect Four Web
+      server and interact with any Web service implementing the
+      Connect Four API.
+
+  R2. Your app must enable the user to select one of the strategies
+      supported by the server.
+
+  R3. Your app must allow the user to drop a token into any valid
+      column of the board.
+
+  R4. Your app must display the game’s progress and current state,
+      including the board configuration, the last token placed by the
+      server, and the game outcome (win/loss/draw).
+
+  R5. When the game ends with a win/loss, your app must highlight the
+      winning or losing sequence of four consecutive tokens.
+
+  R6. Use the Model-View-Controller (MVC) design pattern [2], ensuring
+      model classes are entirely decoupled from the view and
+      controller. Introduce at least one class each for Model, View,
+      and Controller.
+
+  R7. Your app must handle errors such as network issues or invalid
+      user inputs, displaying appropriate error messages.
+
+  R8. Your code must include proper documentation using Dartdoc
+      comments.
+
+IMPLEMENTATION
+
+  1. (100 points) Design and implement your application, utilizing
+     unique Dart language features where appropriate.
+
+  2. (Bonus: 10+ points) Implement a "cheat" mode that suggests the
+     best move for the user. Use the Strategy design pattern to
+     support different algorithms for selecting the optimal column.
+     
+     - Earn additional points for detecting winning/losing sequences,
+       such as four consecutive tokens with an open end or with
+       embedded empty spaces (e.g., XOO_OX or _OOO_).
+
+     - Extra points for creating a cheat mode that can outperform the
+       server's Smart strategy.
+
+
+TESTING
+
+  Your application must compile and run with Dart 2.0 or later. Test
+  your program thoroughly to ensure correctness.
+
+SUBMISSION
+
+  Submit a single ZIP archive containing your source code files. The
+  ZIP file should have a single root directory named
+  YourFirstNameLastName and include only the following:
+
+  - contribution-form.docx (if done in pairs)
+  - pubspec.yaml
+  - bin/main.dart
+  - lib/... (Dart source code files and directories)
+
+  Exclude build files or other-non source code directories and files.
+
+  Submit your work before 11:59 PM on the due date. If working in
+  pairs, only one submission is required, listing both names and
+  including a signed contribution form.
+
+DEMO
+
+  You will need to demo your app to the course staff.
+
+GRADING
+
+  Your assignment will be graded based on several criteria: (a)
+  functionality, which includes meeting the specified requirements,
+  (b) code quality, which evaluates organization, documentation, and
+  the absence of syntax or logic errors, (c) design, ensuring proper
+  use of the MVC pattern with separation of model, view, and
+  controller, (d) error handling, based on the effective management of
+  errors and clear user messages and (e) bonus points for successfully
+  implementing a cheat mode that meets the specified criteria.
+  Additionally, you will be evaluated on the completeness and accuracy
+  of your Dartdoc comments, as well as the overall presentation,
+  such as organization and naming conventions.
+
+REFERENCES 
+
+ [1] Gilad Bracha, The Dart Programming Language, Addison-Wesley 
+     Professional, 2016. Eblook through UTEP library.
+
+ [2] Holger Gast, How to Use Objects, Addison-Wesley, 2016.
+     Sections 9.1 and 9.2. Ebook through UTEP library.
+
+ [3] Write command-line apps,
+     https://dart.dev/tutorials/server/cmdline.
