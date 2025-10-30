@@ -1,0 +1,12 @@
+name: c4_console_app
+description: A Dart console application for Connect Four.
+version: 1.0.0
+
+environment:
+  sdk: ">=2.12.0 <4.0.0"
+
+dependencies:
+  http: ^1.1.0
+
+executables:
+  c4_console_app: bin/main.dart
