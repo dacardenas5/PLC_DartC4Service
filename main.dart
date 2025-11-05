@@ -2,13 +2,14 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
-/// Entry point of the Connect Four application.
+/// Entry point of the Connect Four application
 void main() async {
   Controller().start();
 }
 
-/// Controller class for managing game flow.
+/// Controls the game flow
 class Controller {
+  /// Starts the game and handles turns
   void start() async {
     var ui = ConsoleUI();
     ui.showMessage('Welcome to Connect Four!');
@@ -18,6 +19,7 @@ class Controller {
     ui.showMessage('Retrieving info ...');
     var net = WebClient(url);
     List<String> strategies;
+
     try {
       strategies = await net.getInfo();
     } catch (e) {
@@ -39,16 +41,36 @@ class Controller {
     ui.setBoard(board);
 
     bool gameOver = false;
+
     while (!gameOver) {
       ui.showBoard();
-      int playerMove = ui.promptMove();
+
+      int playerMove;
+      try {
+        playerMove = ui.promptMove();
+      } catch (e) {
+        ui.showMessage('Invalid input, please try again.');
+        continue;
+      }
 
       try {
         var moveResult = await net.makeMove(pid, playerMove);
 
-        board.dropToken(playerMove, 'P');
+        // Drop player token and store last move
+        board.dropToken(playerMove, 'o');
+        board.lastPlayerCol = playerMove;
+        board.lastPlayerRow = board.lastRow;
 
+        // Check if player won
         if (moveResult['ack_move']['isWin'] == true) {
+          List<int> flatPositions =
+              List<int>.from(moveResult['ack_move']['row']);
+          List<List<int>> positions = [];
+          for (int i = 0; i < flatPositions.length; i += 2) {
+            positions.add([flatPositions[i], flatPositions[i + 1]]);
+          }
+          board.capitalizeWin(positions);
+
           ui.showBoard();
           ui.showMessage('You win!');
           gameOver = true;
@@ -60,11 +82,21 @@ class Controller {
           break;
         }
 
+        // Computer move
         var compMove = moveResult['move'];
         if (compMove != null && compMove['slot'] != null) {
-          board.dropToken(compMove['slot'], 'C');
+          board.dropToken(compMove['slot'], 'x');
+          board.lastComputerCol = compMove['slot'];
+          board.lastComputerRow = board.lastRow;
 
           if (compMove['isWin'] == true) {
+            List<int> flatPositions = List<int>.from(compMove['row']);
+            List<List<int>> positions = [];
+            for (int i = 0; i < flatPositions.length; i += 2) {
+              positions.add([flatPositions[i], flatPositions[i + 1]]);
+            }
+            board.capitalizeWin(positions);
+
             ui.showBoard();
             ui.showMessage('Computer wins!');
             gameOver = true;
@@ -78,13 +110,13 @@ class Controller {
         }
       } catch (e) {
         ui.showMessage('Error during move: $e');
-        return;
+        continue;
       }
     }
   }
 }
 
-/// Handles HTTP communication with the Connect Four server.
+/// Handles HTTP communication with the Connect Four server
 class WebClient {
   static const defaultUrl =
       'https://cssrvlab01.utep.edu/Classes/cs3360Cheon/dacardenas5/c4Service/src';
@@ -94,6 +126,7 @@ class WebClient {
 
   WebClient([this.url = defaultUrl]);
 
+  /// Gets server info and strategies
   Future<List<String>> getInfo() async {
     var response = await http.get(Uri.parse('$url/info/'));
     if (response.statusCode != 200)
@@ -104,6 +137,7 @@ class WebClient {
     return List<String>.from(info['strategies']);
   }
 
+  /// Starts a new game with the selected strategy
   Future<String> startGame(String strategy) async {
     var response = await http.get(Uri.parse('$url/new/?strategy=$strategy'));
     if (response.statusCode != 200)
@@ -113,6 +147,7 @@ class WebClient {
     return data['pid'];
   }
 
+  /// Makes a move for the player
   Future<Map<String, dynamic>> makeMove(String pid, int slot) async {
     var response = await http.get(Uri.parse('$url/play/?pid=$pid&move=$slot'));
     if (response.statusCode != 200)
@@ -123,14 +158,17 @@ class WebClient {
   }
 }
 
-/// Handles input/output and displays the board.
+/// Handles input/output and displays the board
 class ConsoleUI {
   late Board _board;
 
+  /// Sets the board model
   void setBoard(Board board) => _board = board;
 
+  /// Prints a message to the console
   void showMessage(String msg) => print(msg);
 
+  /// Prompts the user for server URL
   String promptServerUrl(String defaultUrl) {
     stdout.write('Enter the C4 server URL [default=$defaultUrl]: ');
     var url = stdin.readLineSync();
@@ -138,6 +176,7 @@ class ConsoleUI {
     return url;
   }
 
+  /// Prompts the user to select a strategy
   String promptStrategy(List<String> strategies) {
     for (var i = 0; i < strategies.length; i++)
       print('${i + 1}. ${strategies[i]}');
@@ -151,6 +190,7 @@ class ConsoleUI {
     return strategies[choice - 1];
   }
 
+  /// Prompts the user to select a valid move
   int promptMove() {
     while (true) {
       stdout.write('Select a slot [1-${_board.width}]: ');
@@ -167,13 +207,13 @@ class ConsoleUI {
     }
   }
 
-  /// R5: Display board as Connect Four grid
+  /// Displays the board with last moves and winning positions
   void showBoard() {
     print('');
     for (int r = 0; r < _board.height; r++) {
       var line = '| ';
       for (int c = 0; c < _board.width; c++) {
-        line += '${tokenSymbol(_board.rows[c][r])} | ';
+        line += '${tokenSymbol(c, r)} | ';
       }
       print(line);
     }
@@ -181,23 +221,40 @@ class ConsoleUI {
     print('');
   }
 
-  String tokenSymbol(String t) {
-    switch (t) {
-      case 'P':
-        return 'O'; // player
-      case 'C':
-        return 'X'; // computer
-      default:
-        return ' '; // empty
+  /// Returns the symbol for a token, capitalizing last moves and winning positions
+  String tokenSymbol(int col, int row) {
+    String t = _board.rows[col][row];
+    if (t == ' ') return ' ';
+
+    if ((col == _board.lastPlayerCol && row == _board.lastPlayerRow) ||
+        (col == _board.lastComputerCol && row == _board.lastComputerRow)) {
+      return t.toUpperCase();
     }
+
+    for (var pos in _board.winningPositions) {
+      if (pos[0] == col && pos[1] == row) return t.toUpperCase();
+    }
+
+    return t;
   }
 }
 
-/// Represents a Connect Four board.
+/// Represents a Connect Four board
 class Board {
   final int width;
   final int height;
   late List<List<String>> _rows;
+
+  int? lastCol;
+  int? lastRow;
+
+  int? lastPlayerCol;
+  int? lastPlayerRow;
+
+  int? lastComputerCol;
+  int? lastComputerRow;
+
+  List<List<int>> winningPositions = [];
 
   Board({this.width = 7, this.height = 6}) {
     _rows = List.generate(width, (_) => List.filled(height, ' '));
@@ -207,13 +264,21 @@ class Board {
 
   bool isSlotFull(int col) => _rows[col][0] != ' ';
 
+  /// Drops a token in a column
   void dropToken(int col, String token) {
     for (int r = height - 1; r >= 0; r--) {
       if (_rows[col][r] == ' ') {
-        _rows[col][r] = token;
+        _rows[col][r] = token.toLowerCase();
+        lastCol = col;
+        lastRow = r;
         return;
       }
     }
     throw Exception('Invalid slot, $col');
+  }
+
+  /// Capitalizes winning tokens
+  void capitalizeWin(List<List<int>> positions) {
+    winningPositions = positions;
   }
 }
